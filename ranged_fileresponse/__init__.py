@@ -1,4 +1,7 @@
+import os
 from django.http.response import FileResponse
+# send signals to know about sended chunks
+import django.dispatch
 
 
 class RangedFileReader(object):
@@ -7,9 +10,9 @@ class RangedFileReader(object):
     the file defined by start and stop. Blocks of block_size will be returned
     from the starting position, up to, but not including the stop point.
     """
-    block_size = 8192
+    block_size = 1024 * 1024  # raises too many signals: 8192
 
-    def __init__(self, file_like, start=0, stop=float('inf'), block_size=None):
+    def __init__(self, file_like, start=0, stop=float('inf'), block_size=None, unique_id=None):
         """
         Args:
             file_like (File): A file-like object.
@@ -19,10 +22,13 @@ class RangedFileReader(object):
             block_size (Optional[int]): The block_size to read with.
         """
         self.f = file_like
-        self.size = len(self.f.read())
+        # self.size = len(self.f.read())
+        self.size = os.fstat(self.f.fileno()).st_size
+
         self.block_size = block_size or RangedFileReader.block_size
         self.start = start
         self.stop = stop
+        self.unique_id = unique_id
 
     def __iter__(self):
         """
@@ -32,11 +38,23 @@ class RangedFileReader(object):
         position = self.start
         while position < self.stop:
             data = self.f.read(min(self.block_size, self.stop - position))
+            
+            # notify about this chunk
+            ranged_file_response_signal.send(sender=RangedFileResponse,
+                                             uid=self.unique_id,
+                                             start=position,
+                                             reloaded=False,
+                                             finished=False)
             if not data:
                 break
-
             yield data
             position += self.block_size
+
+        ranged_file_response_signal.send(sender=RangedFileResponse,
+                                             uid=self.unique_id,
+                                             start=position,
+                                             reloaded=False,
+                                             finished=True)
 
     def parse_range_header(self, header, resource_size):
         """
@@ -96,7 +114,10 @@ class RangedFileResponse(FileResponse):
     properly.
     """
 
-    def __init__(self, request, file, *args, **kwargs):
+    def __init__(self, request, file,
+                 block_size=None,  # allow to change
+                 unique_id=None,  # to follow chunks outside via signal
+                 *args, **kwargs):
         """
         RangedFileResponse constructor also requires a request, which
         checks whether range headers should be added to the response.
@@ -105,8 +126,11 @@ class RangedFileResponse(FileResponse):
             request(WGSIRequest): The Django request object.
             file (File): A file-like object.
         """
-        self.ranged_file = RangedFileReader(file)
+        self.unique_id = unique_id
+        self.ranged_file = RangedFileReader(file, block_size=block_size, unique_id=self.unique_id)
         super(RangedFileResponse, self).__init__(self.ranged_file, *args, **kwargs)
+        if hasattr(file, 'close') and hasattr(self, '_closable_objects'):
+            self._closable_objects.append(file)
 
         if 'HTTP_RANGE' in request.META:
             self.add_range_headers(request.META['HTTP_RANGE'])
@@ -143,3 +167,17 @@ class RangedFileResponse(FileResponse):
             self['Content-Range'] = 'bytes %d-%d/%d' % (start, stop - 1, size)
             self['Content-Length'] = stop - start
             self.status_code = 206
+            
+            # notify about this chunk
+            ranged_file_response_signal.send(sender=self.__class__,
+                                             uid=self.unique_id,
+                                             start=start,
+                                             reloaded=True,  # the user (or navigator) asks for another audio part
+                                             finished=False)
+
+
+ranged_file_response_signal = django.dispatch.Signal(providing_args=['start',  # first byte
+                                                                     'uid',  # analytics unique id
+                                                                     'reloaded',  # the user (or navigator) ask for diffrent data
+                                                                     'finished'  # finished streaming
+                                                                     ])
