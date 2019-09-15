@@ -41,8 +41,8 @@ class RangedFileReader(object):
             
             # notify about this chunk
             ranged_file_response_signal.send(sender=RangedFileResponse,
-                                             uid=self.unique_id,
                                              start=position,
+                                             uid=self.unique_id,
                                              reloaded=False,
                                              finished=False)
             if not data:
@@ -51,8 +51,8 @@ class RangedFileReader(object):
             position += self.block_size
 
         ranged_file_response_signal.send(sender=RangedFileResponse,
-                                             uid=self.unique_id,
                                              start=position,
+                                             uid=self.unique_id,
                                              reloaded=False,
                                              finished=True)
 
@@ -170,8 +170,8 @@ class RangedFileResponse(FileResponse):
             
             # notify about this chunk
             ranged_file_response_signal.send(sender=self.__class__,
-                                             uid=self.unique_id,
                                              start=start,
+                                             uid=self.unique_id,
                                              reloaded=True,  # the user (or navigator) asks for another audio part
                                              finished=False)
 

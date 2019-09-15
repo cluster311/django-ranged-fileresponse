@@ -36,6 +36,18 @@ Maintained
         response['Content-Disposition'] = 'attachment; filename="%s"' % filename
         return response
 
+### Signals
+
+```
+from django.dispatch import receiver
+from ranged_fileresponse import RangedFileResponse, ranged_file_response_signal
+
+@receiver(ranged_file_response_signal, sender=RangedFileResponse)
+def chunk_received(sender, uid, start, reloaded, finished, **kwargs):
+    # do something with this data
+    # save_stats(uid=uid, start=start, reloaded=reloaded, finished=finished)
+```
+
 ## Contributing
 
 See the [CONTRIBUTING.md](CONTRIBUTING.md) file on how to contribute to this project.
