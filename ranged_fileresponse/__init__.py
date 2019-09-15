@@ -10,9 +10,8 @@ class RangedFileReader(object):
     the file defined by start and stop. Blocks of block_size will be returned
     from the starting position, up to, but not including the stop point.
     """
-    block_size = 1024 * 1024  # raises too many signals: 8192
 
-    def __init__(self, file_like, start=0, stop=float('inf'), block_size=None, unique_id=None):
+    def __init__(self, file_like, start=0, stop=-1, block_size=1024 * 1024, unique_id=None):
         """
         Args:
             file_like (File): A file-like object.
@@ -25,23 +24,31 @@ class RangedFileReader(object):
         # self.size = len(self.f.read())
         self.size = os.fstat(self.f.fileno()).st_size
 
-        self.block_size = block_size or RangedFileReader.block_size
+        self.block_size = block_size
         self.start = start
-        self.stop = stop
         self.unique_id = unique_id
-
+        
+        # the client frecuently do not ask for the stop bytes so we always send all the file
+        # the client not uses all of this.
+        # I try to force client to ask again
+        if stop == -1:
+            stop = min(start + stop, self.size)
+        
+        self.stop = stop
+        
     def __iter__(self):
         """
         Reads the data in chunks.
         """
         self.f.seek(self.start)
         position = self.start
+        
         while position < self.stop:
             read_to = min(self.block_size, self.stop - position)
             data = self.f.read(read_to)
             my_stop = position + read_to
             # notify about this chunk
-            finished = not data or (position + self.block_size >= self.stop)
+            finished = position + self.block_size >= self.size  # size is real, stop is my idea to break in parts
             # we process this many times because the clients ask for start point and not the finsh ones
             # so we get chuck from 0 to end, then from N to end, then NN to end, etc.
             ranged_file_response_signal.send(sender=RangedFileResponse,
@@ -95,9 +102,11 @@ class RangedFileReader(object):
                 # byte-range-spec: first-byte-pos "-" [last-byte-pos].
                 start, stop = val.split('-', 1)
                 start = int(start)
+
                 # The +1 is here since we want the stopping point to be
                 # exclusive, whereas in the HTTP spec, the last-byte-pos
                 # is inclusive.
+
                 stop = int(stop) + 1 if stop else resource_size
                 if start >= stop:
                     return None
@@ -117,6 +126,7 @@ class RangedFileResponse(FileResponse):
     def __init__(self, request, file,
                  block_size=None,  # allow to change
                  unique_id=None,  # to follow chunks outside via signal
+                 max_content_size=0,  # not send all file, send parts so the client need to ask for more and I can do analytics
                  *args, **kwargs):
         """
         RangedFileResponse constructor also requires a request, which
@@ -127,7 +137,13 @@ class RangedFileResponse(FileResponse):
             file (File): A file-like object.
         """
         self.unique_id = unique_id
-        self.ranged_file = RangedFileReader(file, block_size=block_size, unique_id=self.unique_id)
+        if max_content_size == 0:
+            max_content_size = float('inf')
+        
+        self.ranged_file = RangedFileReader(file,
+                                            block_size=block_size,
+                                            stop=max_content_size,
+                                            unique_id=self.unique_id)
         super(RangedFileResponse, self).__init__(self.ranged_file, *args, **kwargs)
         if hasattr(file, 'close') and hasattr(self, '_closable_objects'):
             self._closable_objects.append(file)
