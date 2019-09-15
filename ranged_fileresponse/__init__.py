@@ -42,6 +42,8 @@ class RangedFileReader(object):
             my_stop = position + read_to
             # notify about this chunk
             finished = not data or (position + self.block_size >= self.stop)
+            # we process this many times because the clients ask for start point and not the finsh ones
+            # so we get chuck from 0 to end, then from N to end, then NN to end, etc.
             ranged_file_response_signal.send(sender=RangedFileResponse,
                                              start=position,
                                              stop=my_stop,
@@ -144,7 +146,7 @@ class RangedFileResponse(FileResponse):
                                          start=start,
                                          stop=stop,
                                          uid=self.unique_id,
-                                         reloaded=True,  # the user (or navigator) asks for another audio part
+                                         reloaded=True,  # the user (or navigator) asks for another part
                                          finished=False,
                                          http_range=request.META.get('HTTP_RANGE', None)
                                          )

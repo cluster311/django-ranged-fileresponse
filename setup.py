@@ -9,7 +9,7 @@ tests_require = [
 
 setup(
     name='django-ranged-fileresponse',
-    version='0.1.4g',
+    version='0.1.4h',
     description='Modified Django FileResponse that adds Content-Range headers.',
     # url='https://github.com/wearespindle/django-ranged-fileresponse',
     url='https://github.com/cluster311/django-ranged-fileresponse',
