@@ -1,3 +1,4 @@
+from io import BufferedReader, BytesIO
 import os
 from django.http.response import FileResponse
 # send signals to know about sended chunks
@@ -21,8 +22,13 @@ class RangedFileReader(object):
             block_size (Optional[int]): The block_size to read with.
         """
         self.f = file_like
-        # self.size = len(self.f.read())
-        self.size = os.fstat(self.f.fileno()).st_size
+        
+        if type(f) == BufferedReader:  # a file from filesystem
+            self.size = os.fstat(self.f.fileno()).st_size
+        elif type(f) == BytesIO:  # a file from filesystem
+            self.size = f.getbuffer().nbytes
+        else:
+            raise Exception('Unexpected buffer to stream ranged')
 
         self.block_size = block_size
         self.start = start
