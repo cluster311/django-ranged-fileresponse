@@ -23,10 +23,10 @@ class RangedFileReader(object):
         """
         self.f = file_like
         
-        if type(f) == BufferedReader:  # a file from filesystem
+        if type(self.f) == BufferedReader:  # a file from filesystem
             self.size = os.fstat(self.f.fileno()).st_size
-        elif type(f) == BytesIO:  # a file from filesystem
-            self.size = f.getbuffer().nbytes
+        elif type(self.f) == BytesIO:  # a file like
+            self.size = self.f.getbuffer().nbytes
         else:
             raise Exception('Unexpected buffer to stream ranged')
 
