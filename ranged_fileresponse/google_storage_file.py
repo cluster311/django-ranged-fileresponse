@@ -1,0 +1,97 @@
+import io
+import requests
+from google.resumable_media.requests import ChunkedDownload
+
+
+class RangedGoogleStorageFileReader(object):
+    """
+    Wraps a google storage blob object with an iterator that runs over part (or all) of
+    the file defined by start and stop. Blocks of block_size will be returned
+    from the starting position, up to, but not including the stop point.
+    """
+
+    def __init__(self, media_url, start=0, stop=0, block_size=1024 * 1024, unique_id=None, ranged_response=None):
+        """
+        Args:
+            file_like (File): A file-like object.
+            start (int): Where to start reading the file.
+            stop (Optional[int]:float): Where to end reading the file.
+                Defaults to infinity.
+            block_size (Optional[int]): The block_size to read with.
+        """
+
+        self.f = io.BytesIO()
+        self.media_url = media_url
+
+        # -----------------------------------------------------------------------------------------
+        if start < 0:
+            # specifica case when we ask for the last N bytes but we still don't know thw file size
+            self.download = ChunkedDownload(
+                media_url=self.media_url,
+                chunk_size=1024,  # just 1K to get the file size,
+                stream=io.BytesIO(),
+                start=0,
+                # headers={},
+            )
+            chunk = self.download.consume_next_chunk(transport=requests.Session())
+            size = self.download.total_bytes
+            start = size + start  # start is negative
+        # -----------------------------------------------------------------------------------------
+
+        self.download = ChunkedDownload(
+            media_url=self.media_url,
+            chunk_size=block_size,
+            stream=self.f,
+            start=start,
+            # headers={},
+        )
+        # only if client want something specific, use it, if not, go to the end
+        if stop > 0:
+            self.download.end = stop
+
+        # total_bytes is only available after the first chunk is downloaded
+        self.initial_chunk = self.download.consume_next_chunk(transport=requests.Session())
+        self.size = self.download.total_bytes
+        if stop == 0:
+            self.stop = self.size
+        else:
+            self.stop = stop
+        
+        self.block_size = block_size
+        self.start = start
+        
+        self.unique_id = unique_id
+
+        # optionally, a father response to notify chenks sent
+        self.ranged_response = ranged_response
+
+    def __iter__(self):
+        """
+        Reads the data in chunks.
+        """
+        yield self.initial_chunk.content
+        position = self.start + self.block_size
+        
+        while not self.download.finished:
+            read_to = min(self.block_size, self.stop - position)
+            chunk = self.download.consume_next_chunk(transport=requests.Session())
+            data = chunk.content
+            my_stop = position + read_to
+            # notify about this chunk
+            
+            if self.ranged_response:
+                kwargs = dict(
+                    start=position,
+                    stop=my_stop,
+                    uid=self.unique_id,
+                    reloaded=False,
+                    finished=self.download.finished,
+                    http_range=None
+                )
+                self.ranged_response.send_signal(**kwargs)
+            
+            if not data:
+                print(f'  ---- NO DATA')
+                break
+            yield data
+            position += self.block_size

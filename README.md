@@ -1,48 +1,66 @@
 # django-ranged-fileresponse
 
-[![Build Status](https://travis-ci.org/wearespindle/django-ranged-fileresponse.svg?branch=master)](https://travis-ci.org/wearespindle/django-ranged-fileresponse)
-
-If you're in the situation that you have an authenticated Django view that returns
-files for download, you may have noticed that Safari 9.x doesn't play audio files
-properly when returning audio-files. The reason is that Safari sends a HTTP_RANGE request header and expects a proper `Content-Range` response header in return.
-There is a [Django ticket](https://code.djangoproject.com/ticket/22479)
+Django do not include a HTTP Ranged Response. There is a [Django ticket](https://code.djangoproject.com/ticket/22479)
 for this, however no indication that this feature will be implemented soon.
 
 The [original suggested fix](https://github.com/satchamo/django/commit/2ce75c5c4bee2a858c0214d136bfcd351fcde11d)
 applies the code to Django's static view. This is a packaged version of that fix,
 but uses a modified FileResponse, instead of applying it to Django's static view.
 
+Forked originally from a project that only handles local files
+This fork also include Ranged Responses from open Google Storage Blobs
+
 ## Status
 
-Maintained
+~Maintained
 
 ## Usage
 
 ### Requirements
 
- * django >= 1.4
+ * django >= 3.2
 
 ### Installation
 
-    pip install django-ranged-fileresponse
+    pip install -e git://github.com/cluster311/django-ranged-fileresponse#egg=django-ranged-fileresponse==0.1.8
 
 ### Running
 
-    from ranged_fileresponse import RangedFileResponse
+#### Local files
+
+```python
+    from ranged_fileresponse.local import RangedLocalFileResponse
 
     def some_proxy_view(request):
         filename = 'myfile.wav'
-        response = RangedFileResponse(request, open(filename, 'r'), content_type='audio/wav')
+        response = RangedLocalFileResponse(request, open(filename, 'r'), content_type='audio/wav')
         response['Content-Disposition'] = 'attachment; filename="%s"' % filename
         return response
+```
+
+#### Google Storage files
+
+```python
+    from ranged_fileresponse.google import RangedGoogleBlobResponse
+
+    def some_proxy_view(request):
+        filename = 'myfile.wav'
+        response = RangedGoogleBlobResponse(
+            request,
+            "https://storage.googleapis.com/parlarispa-app-files/audios/s02e38-adria-mercader.mp3",  # the media URL
+            content_type='audio/wav'
+        )
+        response['Content-Disposition'] = 'attachment; filename="%s"' % filename
+        return response
+```
 
 ### Signals
 
-```
+```python
 from django.dispatch import receiver
-from ranged_fileresponse import RangedFileResponse, ranged_file_response_signal
+from ranged_fileresponse import ranged_file_response_signal
 
-@receiver(ranged_file_response_signal, sender=RangedFileResponse)
+@receiver(ranged_file_response_signal)
 def chunk_received(sender, uid, start, reloaded, finished, **kwargs):
     # do something with this data
     # save_stats(uid=uid, start=start, reloaded=reloaded, finished=finished)
@@ -65,10 +83,6 @@ The changelog can be found in the [CHANGELOG.md](CHANGELOG.md) file.
 ### In progress
 
  * Maintaining
-
-### Future
-
- * Compatibility
 
 ## Get in touch with a developer
 

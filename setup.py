@@ -7,9 +7,13 @@ tests_require = [
     'django>=1.8.0',
 ]
 
+required = [
+    'django_storages==1.12.3'
+]
+
 setup(
     name='django-ranged-fileresponse',
-    version='0.1.7',
+    version='0.1.8',
     description='Modified Django FileResponse that adds Content-Range headers.',
     # url='https://github.com/wearespindle/django-ranged-fileresponse',
     url='https://github.com/cluster311/django-ranged-fileresponse',
@@ -18,6 +22,7 @@ setup(
     license='MIT',
     packages=['ranged_fileresponse'],
     zip_safe=False,
+    install_requires=required,
     tests_require=tests_require,
     extras_require={
         'test': tests_require,
