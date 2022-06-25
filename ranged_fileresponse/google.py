@@ -1,8 +1,13 @@
+import logging
+
 from django.core.exceptions import BadRequest
 from django.http.response import FileResponse
 
 from ranged_fileresponse import RangedResponse
 from ranged_fileresponse.google_storage_file import RangedGoogleStorageFileReader
+
+
+logger = logging.getLogger(__name__)
 
 
 class RangedGoogleBlobResponse(FileResponse, RangedResponse):
@@ -24,6 +29,7 @@ class RangedGoogleBlobResponse(FileResponse, RangedResponse):
             request(WGSIRequest): The Django request object.
             file (File): A file-like object.
         """
+        logger.info(f'init RangedGoogleBlobResponse {media_url}')
         self.unique_id = unique_id
 
         if 'HTTP_RANGE' in request.META:
@@ -33,6 +39,8 @@ class RangedGoogleBlobResponse(FileResponse, RangedResponse):
         else:
             start = 0
             stop = 0
+
+        logger.info(f'start:stop {start}:{stop}')
 
         self.ranged_file = RangedGoogleStorageFileReader(
             media_url,

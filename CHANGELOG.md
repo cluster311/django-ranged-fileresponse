@@ -1,5 +1,9 @@
 # Changelog
 
+## Version 0.1.9 2022-06-25
+
+ * Add logger
+
 ## Version 0.1.8 2022-01-02
 
  * Allow Google Storage blob (with public URLs)

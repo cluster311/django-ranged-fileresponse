@@ -1,6 +1,10 @@
 import io
+import logging
 import requests
 from google.resumable_media.requests import ChunkedDownload
+
+
+logger = logging.getLogger(__name__)
 
 
 class RangedGoogleStorageFileReader(object):
@@ -13,13 +17,13 @@ class RangedGoogleStorageFileReader(object):
     def __init__(self, media_url, start=0, stop=0, block_size=1024 * 1024, unique_id=None, ranged_response=None):
         """
         Args:
-            file_like (File): A file-like object.
+            media_url (str): URL to the resource
             start (int): Where to start reading the file.
             stop (Optional[int]:float): Where to end reading the file.
                 Defaults to infinity.
             block_size (Optional[int]): The block_size to read with.
         """
-
+        logger.info(f'Init RangedGoogleStorageFileReader {media_url} {start}:{stop}')
         self.f = io.BytesIO()
         self.media_url = media_url
 
@@ -34,6 +38,7 @@ class RangedGoogleStorageFileReader(object):
                 # headers={},
             )
             chunk = self.download.consume_next_chunk(transport=requests.Session())
+            logger.info(f'chunk {chunk} (start<0)')
             size = self.download.total_bytes
             start = size + start  # start is negative
         # -----------------------------------------------------------------------------------------
@@ -45,6 +50,7 @@ class RangedGoogleStorageFileReader(object):
             start=start,
             # headers={},
         )
+        logger.info(f'download {self.download} block {block_size} start {start}')
         # only if client want something specific, use it, if not, go to the end
         if stop > 0:
             self.download.end = stop
@@ -69,10 +75,12 @@ class RangedGoogleStorageFileReader(object):
         """
         Reads the data in chunks.
         """
+        logger.info(f'ITER {0} {self.start}-{self.block_size}')
         yield self.initial_chunk.content
         position = self.start + self.block_size
         
         while not self.download.finished:
+            logger.info(f'ITER N {self.start}:{self.block_size}:{self.stop}:{position}')
             read_to = min(self.block_size, self.stop - position)
             chunk = self.download.consume_next_chunk(transport=requests.Session())
             data = chunk.content
@@ -91,7 +99,7 @@ class RangedGoogleStorageFileReader(object):
                 self.ranged_response.send_signal(**kwargs)
             
             if not data:
-                print(f'  ---- NO DATA')
+                logger.info(f'ITER finished')
                 break
             yield data
             position += self.block_size

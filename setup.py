@@ -13,12 +13,12 @@ required = [
 
 setup(
     name='django-ranged-fileresponse',
-    version='0.1.8',
+    version='0.1.9',
     description='Modified Django FileResponse that adds Content-Range headers.',
     # url='https://github.com/wearespindle/django-ranged-fileresponse',
     url='https://github.com/cluster311/django-ranged-fileresponse',
-    author='Spindle',
-    author_email='opensource@wearespindle.com',
+    author='Cluster 311 (forked from Spindle work)',
+    author_email='cluster311@gmail.com',
     license='MIT',
     packages=['ranged_fileresponse'],
     zip_safe=False,
