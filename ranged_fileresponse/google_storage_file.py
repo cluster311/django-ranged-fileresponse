@@ -5,7 +5,7 @@ from google.resumable_media.requests import ChunkedDownload
 
 
 logger = logging.getLogger(__name__)
-
+MAX_DOWN_SIZE = 10 * 1024 * 1024
 
 class RangedGoogleStorageFileReader(object):
     """
@@ -51,9 +51,6 @@ class RangedGoogleStorageFileReader(object):
             # headers={},
         )
         logger.info(f'download {self.download} block {block_size} start {start}')
-        # only if client want something specific, use it, if not, go to the end
-        if stop > 0:
-            self.download.end = stop
 
         # total_bytes is only available after the first chunk is downloaded
         self.initial_chunk = self.download.consume_next_chunk(transport=requests.Session())
@@ -62,7 +59,15 @@ class RangedGoogleStorageFileReader(object):
             self.stop = self.size
         else:
             self.stop = stop
-        
+
+        # ensure a group of chunks with a max size (32 MB limit for http 1)
+        if self.size - self.start > MAX_DOWN_SIZE:
+            self.stop = self.start + MAX_DOWN_SIZE
+
+        # only if client want something specific, use it, if not, go to the end
+        if self.stop > 0:
+            self.download.end = self.stop
+
         self.block_size = block_size
         self.start = start
         self.position = self.start
