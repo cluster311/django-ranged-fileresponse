@@ -1,5 +1,9 @@
 # Changelog
 
+## Version 0.2.0 2022-06-25
+
+ * Fix iterator
+
 ## Version 0.1.9 2022-06-25
 
  * Add logger

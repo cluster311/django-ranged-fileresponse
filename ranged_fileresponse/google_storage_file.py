@@ -65,41 +65,54 @@ class RangedGoogleStorageFileReader(object):
         
         self.block_size = block_size
         self.start = start
+        self.position = self.start
+        self.iter_counter = 0  # just to check
         
         self.unique_id = unique_id
 
         # optionally, a father response to notify chenks sent
         self.ranged_response = ranged_response
 
+    def __len__(self):
+        return 1 + (self.size // self.block_size)
+
     def __iter__(self):
+        return self
+
+    def __next__(self):
         """
         Reads the data in chunks.
         """
-        logger.info(f'ITER {0} {self.start}-{self.block_size}')
-        yield self.initial_chunk.content
-        position = self.start + self.block_size
+        self.iter_counter += 1
+        logger.info(f'ITER {self.iter_counter} {self.position}-{self.block_size}:{self.stop}')
+        if self.iter_counter == 1:
+            return self.initial_chunk.content
+        self.position = self.start + self.block_size
         
-        while not self.download.finished:
-            logger.info(f'ITER N {self.start}:{self.block_size}:{self.stop}:{position}')
-            read_to = min(self.block_size, self.stop - position)
-            chunk = self.download.consume_next_chunk(transport=requests.Session())
-            data = chunk.content
-            my_stop = position + read_to
-            # notify about this chunk
-            
-            if self.ranged_response:
-                kwargs = dict(
-                    start=position,
-                    stop=my_stop,
-                    uid=self.unique_id,
-                    reloaded=False,
-                    finished=self.download.finished,
-                    http_range=None
-                )
-                self.ranged_response.send_signal(**kwargs)
-            
-            if not data:
-                logger.info(f'ITER finished')
-                break
-            yield data
-            position += self.block_size
+        if self.download.finished:
+            logger.info(f'ITER down finished')
+            raise StopIteration() 
+        read_to = min(self.block_size, self.stop - self.position)
+        chunk = self.download.consume_next_chunk(transport=requests.Session())
+        data = chunk.content
+        my_stop = self.position + read_to
+        # notify about this chunk
+        
+        if self.ranged_response:
+            kwargs = dict(
+                start=self.position,
+                stop=my_stop,
+                uid=self.unique_id,
+                reloaded=False,
+                finished=self.download.finished,
+                http_range=None
+            )
+            self.ranged_response.send_signal(**kwargs)
+        
+        if not data:
+            logger.info(f'ITER data finished')
+            raise StopIteration()
+
+        self.position += self.block_size
+        return data
+        

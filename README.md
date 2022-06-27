@@ -22,7 +22,7 @@ This fork also include Ranged Responses from open Google Storage Blobs
 
 ### Installation
 
-    pip install -e git://github.com/cluster311/django-ranged-fileresponse#egg=django-ranged-fileresponse==0.1.8
+    pip install -e git://github.com/cluster311/django-ranged-fileresponse#egg=django-ranged-fileresponse==0.2.0
 
 ### Running
 
