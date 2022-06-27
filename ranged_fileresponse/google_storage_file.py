@@ -84,19 +84,29 @@ class RangedGoogleStorageFileReader(object):
         Reads the data in chunks.
         """
         self.iter_counter += 1
+        self._notify_chunk()
         logger.info(f'ITER {self.iter_counter} {self.position}-{self.block_size}:{self.stop}')
+        self.position += self.block_size
         if self.iter_counter == 1:
             return self.initial_chunk.content
-        self.position = self.start + self.block_size
         
         if self.download.finished:
             logger.info(f'ITER down finished')
             raise StopIteration() 
-        read_to = min(self.block_size, self.stop - self.position)
+
         chunk = self.download.consume_next_chunk(transport=requests.Session())
         data = chunk.content
+        
+        if not data:
+            logger.info(f'ITER data finished')
+            raise StopIteration()
+
+        return data
+        
+    def _notify_chunk(self):
+        """ notify about a chunk """
+        read_to = min(self.block_size, self.stop - self.position)
         my_stop = self.position + read_to
-        # notify about this chunk
         
         if self.ranged_response:
             kwargs = dict(
@@ -108,11 +118,3 @@ class RangedGoogleStorageFileReader(object):
                 http_range=None
             )
             self.ranged_response.send_signal(**kwargs)
-        
-        if not data:
-            logger.info(f'ITER data finished')
-            raise StopIteration()
-
-        self.position += self.block_size
-        return data
-        
