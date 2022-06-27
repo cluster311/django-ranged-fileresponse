@@ -60,6 +60,11 @@ class RangedGoogleStorageFileReader(object):
         else:
             self.stop = stop
 
+        self.block_size = block_size
+        self.start = start
+        self.position = self.start
+        self.iter_counter = 0  # just to check
+
         # ensure a group of chunks with a max size (32 MB limit for http 1)
         if self.size - self.start > MAX_DOWN_SIZE:
             self.stop = self.start + MAX_DOWN_SIZE
@@ -68,11 +73,6 @@ class RangedGoogleStorageFileReader(object):
         if self.stop > 0:
             self.download.end = self.stop
 
-        self.block_size = block_size
-        self.start = start
-        self.position = self.start
-        self.iter_counter = 0  # just to check
-        
         self.unique_id = unique_id
 
         # optionally, a father response to notify chenks sent
